@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::errors::*;
 use crate::row::*;
 use crate::types::*;
@@ -225,6 +226,26 @@ impl TryFrom<BoltType> for String {
             BoltType::String(t) => Ok(t.value),
             _ => Err(Error::ConversionError),
         }
+    }
+}
+
+
+impl<K, V> TryFrom<HashMap<K, V>> for BoltType where K: Into<BoltString>, V: TryInto<BoltType> {
+    type Error = Error;
+
+    fn try_from(value: HashMap<K, V>) -> std::result::Result<Self, Self::Error> {
+        let entries: Result<Vec<(BoltString, BoltType)>> = value.into_iter().map(|(k, v)| {
+            let key: BoltString = k.into();
+            let result: Result<(BoltString, BoltType)> = match v.try_into() {
+                Ok(value) => Ok((key, value)),
+                Err(_) => Err(Error::ConversionError)
+            };
+            result
+        }).collect();
+
+        let map = BoltMap::from_iter(entries?.into_iter());
+
+        Ok(BoltType::Map(map))
     }
 }
 
